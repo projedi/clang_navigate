@@ -14,9 +14,14 @@ function! s:ClangNavigatorInit()
   if !exists('g:clang_jumpto_definition_key')
     let g:clang_jumpto_definition_key = '<C-J>'
   endif
+  if !exists('g:clang_rebuild_db_key')
+    let g:clang_rebuild_db_key = '<C-B>'
+  endif
   
   execute "nnoremap <buffer> <silent> " . g:clang_jumpto_declaration_key . " :call <SID>GotoDeclaration()<CR><Esc>"  
   execute "nnoremap <buffer> <silent> " . g:clang_jumpto_definition_key . " :call <SID>GotoDefinition()<CR><Esc>"
+  
+  execute "nnoremap <buffer> <silent> " . g:clang_rebuild_db_key . " :call <SID>DBRebuild()<CR><Esc>"
   
 endfunction
 
@@ -62,4 +67,8 @@ endfunction
 
 function! s:LaunchCompletion()  
   return ''
+endfunction
+
+function! DBRebuild()
+	python dbRebuild()
 endfunction
