@@ -237,11 +237,35 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
    bool VisitEnumDecl(clang::EnumDecl* decl) {
       llerr << "Enum: " << *decl << "\n";
+      clang::EnumDecl * def = decl->getDefinition();
+      if (decl == def) {
+         addDefinition(
+            decl->getSourceRange(),
+            "Enum " + decl->getNameAsString() );
+      } else {
+         addDeclaration(
+            decl->getSourceRange(),
+            "Enum " + decl->getNameAsString(),
+            def->getSourceRange(),
+            "Enum " + def->getNameAsString());
+      }
       return true;
    }
 
    bool VisitRecordDecl(clang::RecordDecl* decl) {
       llerr << "Record: " << *decl << "\n";
+      clang::RecordDecl * def = decl->getDefinition();
+      if (decl == def) {
+         addDefinition(
+            decl->getSourceRange(),
+            "Record " + decl->getNameAsString() );
+      } else {
+         addDeclaration(
+            decl->getSourceRange(),
+            "Record " + decl->getNameAsString(),
+            def->getSourceRange(),
+            "Record " + def->getNameAsString());
+      }
       return true;
    }
 
@@ -257,26 +281,58 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
    bool VisitFieldDecl(clang::FieldDecl* decl) {
       llerr << "Field: " << *decl << "\n";
+      addDefinition(
+            decl->getSourceRange(),
+            "Field " + decl->getNameAsString() );
       return true;
    }
 
    bool VisitFunctionDecl(clang::FunctionDecl* decl) {
       llerr << "Function: " << *decl << "\n";
+      addDefinition(
+            decl->getSourceRange(),
+            "Function " + decl->getNameAsString() );
       return true;
    }
 
    bool VisitVarDecl(clang::VarDecl* decl) {
       llerr << "Var: " << *decl << "\n";
+      clang::VarDecl * def = decl->getDefinition();
+      if (decl == def) {
+         addDefinition(
+            decl->getSourceRange(),
+            "Var " + decl->getNameAsString() );
+      } else {
+         addDeclaration(
+            decl->getSourceRange(),
+            "Var " + decl->getNameAsString(),
+            def->getSourceRange(),
+            "Var " + def->getNameAsString());
+      }
       return true;
    }
 
    bool VisitMemberExpr(clang::MemberExpr* expr) {
       llerr << "Member: " << *expr << "\n";
+      if(clang::FieldDecl const* decl = dynamic_cast<clang::FieldDecl const*>(expr->getMemberDecl())) {
+         addDeclaration(
+            expr->getSourceRange(),
+            "Field " + expr->getMemberNameInfo().getAsString(),
+            decl->getSourceRange(),
+            "Field " + decl->getNameAsString());
+      }
       return true;
    }
 
    bool VisitDeclRefExpr(clang::DeclRefExpr* expr) {
       llerr << "DeclRef: " << *expr << "\n";
+      if(clang::VarDecl const* decl = dynamic_cast<clang::VarDecl const*>(expr->getDecl())) {
+         addDeclaration(
+            expr->getSourceRange(),
+            "Var " + expr->getNameInfo().getAsString(),
+            decl->getSourceRange(),
+            "Var " + decl->getNameAsString());
+      }
       return true;
    }
 
@@ -308,34 +364,36 @@ private:
       return out;
    }
 
-   void addDefitition(clang::SourceRange range, std::string data) {
+   int addDefinition(clang::SourceRange range, std::string data) {
       SourceRange range_ = getLocation (range);
 
-      if (getDefinitionID(_db, range_) != -1) {
-         return;
+      int id = getDefinitionID(_db, range_);
+      if (id != -1) {
+         return id;
       }
 
-      int id = getNewDefinitionID(_db);
-      if (id == -1) return;
+      id = getNewDefinitionID(_db);
+      if (id == -1) return -1;
 
       insertRow(_db, range_, id, data, DEFINITION_TYPE);
+      return id;
    }
 
-   void addDeclaration(clang::SourceRange definition, clang::SourceRange range, std::string data) {
+   void addDeclaration(clang::SourceRange range, std::string data, clang::SourceRange definition, std::string def_data) {
       SourceRange definition_ = getLocation (definition);
       SourceRange range_ = getLocation (range);
 
-      int id = getDefinitionID(_db, definition_);
+      int id = addDefinition(definition, def_data);
       if (id == -1) return;
 
       insertRow(_db, range_, id, data, DECLARATION_TYPE);
    }
 
-   void addUsage(clang::SourceRange definition, clang::SourceRange range, std::string data) {
+   void addUsage(clang::SourceRange range, std::string data, clang::SourceRange definition, std::string def_data) {
       SourceRange definition_ = getLocation (definition);
       SourceRange range_ = getLocation (range);
 
-      int id = getDefinitionID(_db, definition_);
+      int id = addDefinition(definition, def_data);
       if (id == -1) return;
 
       insertRow(_db, range_, id, data, USAGE_TYPE);
@@ -368,6 +426,8 @@ int main(int argc, char** argv) {
       std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
       exit(1);
    }
+   createTableIfNotExists(db);
+   dropFileIndex(db, filename);
 
    clang::CompilerInstance ci;
    ci.createDiagnostics();

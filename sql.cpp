@@ -10,21 +10,21 @@ void insertRow(sqlite3 * db, SourceRange range, int id, std::string data, int ty
 
    query << "INSERT INTO items (id, file, row_b, col_b, row_e, col_e, type, data) VALUES " <<
    "(" << id << ","
-       << range.filename << ","
+       << "'" << range.filename << "' ,"
        << range.row_b << "," << range.col_b << ","
        << range.row_e << "," << range.col_e << ","
        << DEFINITION_TYPE << ","
-       << data << ")";
+       << "'" << data << "' )";
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
-      std::cerr << "sqlite3_prepare[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_prepare[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return;
    }
    rc = sqlite3_step( stmt );
    if (rc != SQLITE_DONE) {
-      std::cerr << "sqlite3_step[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_step[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return;
    }
@@ -37,7 +37,7 @@ int getDefinitionID(sqlite3 * db, SourceRange range) {
    int rc;
 
    query << "SELECT id FROM items WHERE" <<
-      " filename = " << range.filename <<
+      " file = '" << range.filename << "'" <<
       " and row_b = " << range.row_b <<
       " and col_b = " << range.col_b <<
       " and row_e = " << range.row_e <<
@@ -46,13 +46,16 @@ int getDefinitionID(sqlite3 * db, SourceRange range) {
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
-      std::cerr << "sqlite3_prepare[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_prepare[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return -1;
    }
    rc = sqlite3_step( stmt );
+   if (rc == SQLITE_DONE) {
+      return -1;
+   }
    if (rc != SQLITE_ROW) {
-      std::cerr << "sqlite3_step[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_step[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return -1;
    }
@@ -70,13 +73,16 @@ int getNewDefinitionID(sqlite3 * db) {
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
-      std::cerr << "sqlite3_prepare[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_prepare[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return -1;
    }
    rc = sqlite3_step( stmt );
+   if (rc == SQLITE_DONE) {
+      return 0;
+   }
    if (rc != SQLITE_ROW) {
-      std::cerr << "sqlite3_step[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_step[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return -1;
    }
@@ -102,13 +108,13 @@ void createTableIfNotExists(sqlite3 * db) {
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
-      std::cerr << "sqlite3_prepare[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_prepare[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return;
    }
    rc = sqlite3_step( stmt );
    if (rc != SQLITE_DONE) {
-      std::cerr << "sqlite3_step[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_step[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return;
    }
@@ -121,17 +127,17 @@ void dropFileIndex(sqlite3 * db, std::string filename) {
    int rc;
 
    std::ostringstream query;
-   query << "DELETE FROM items WHERE file = " << filename;
+   query << "DELETE FROM items WHERE file = '" << filename << "'";
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
-      std::cerr << "sqlite3_prepare[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_prepare[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return;
    }
    rc = sqlite3_step( stmt );
    if (rc != SQLITE_DONE) {
-      std::cerr << "sqlite3_step[" << rc << "] " << query << std::endl;
+      std::cerr << "sqlite3_step[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
       sqlite3_finalize( stmt );
       return;
    }
