@@ -47,7 +47,7 @@ endfunction
 
 function! s:GotoDeclaration()
   try
-    python gotoDeclaration()
+    python gotoDefDecl(1)
   catch /^Vim\%((\a\+)\)\=:E37/
     echoe "The current file is not saved, and 'hidden' is not set."
           \ "Either save the file or add 'set hidden' in your vimrc."
@@ -57,7 +57,7 @@ endfunction
 
 function! s:GotoDefinition()
 try
-    python gotoDefinition()
+    python gotoDefDecl(0)
   catch /^Vim\%((\a\+)\)\=:E37/
     echoe "The current file is not saved, and 'hidden' is not set."
           \ "Either save the file or add 'set hidden' in your vimrc."
@@ -69,6 +69,6 @@ function! s:LaunchCompletion()
   return ''
 endfunction
 
-function! DBRebuild()
-	python dbRebuild()
+function! s:DBRebuild()
+  python dbRebuild(vim.eval('s:plugin_path') + '/clang_navigate')
 endfunction

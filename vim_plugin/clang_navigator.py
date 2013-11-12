@@ -1,33 +1,11 @@
 import vim
-import os
-import threading
-import sqlite3
+import utils_cn
+# DEF = 0 
+# DECL = 1
+# USAGE = 2 
 
-# Declaration type = 1, Definition type = 2	
 def initClangNavigator():
 	return
-	
-	
-def getPosition(idx, type):
-	dbname = "testdb.db"
-	conn = sqlite3.connect(dbname)
-	c = conn.cursor()
-	c.execute("SELECT file, row, col FROM items WHERE id = ? AND type = ?", [idx, type])
-	res = c.fetchone()
-	if res is None:
-		return None, None, None
-	return  res
-
-def getItem(line, col):
-	dbname = "testdb.db"
-	conn = sqlite3.connect(dbname)
-	c = conn.cursor()
-	c.execute("SELECT id, row, col FROM items WHERE (col <= ?) AND (col + col_offset >= ?) AND (row <= ?) AND (row + row_offset >= ?)", [col, col, line, line])
-	res = c.fetchall()
-	if not res:
-		return None
-	res = sorted(res, key = lambda x: x[1], reverse = True)
-	return res[0][0]
 	
 def jumpToLocation(filename, line, column):
   if filename != vim.current.buffer.name:
@@ -41,27 +19,19 @@ def jumpToLocation(filename, line, column):
   else:
     vim.command("normal m'")
   vim.current.window.cursor = (line, column - 1)	
-
-def gotoDeclaration():
-  line, col = vim.current.window.cursor
-  idx = getItem(line, col)
-  if idx is None:
-  	return
-  filename, line, col = getPosition(idx, 1) 
-  if filename is None:
-  	return
-  jumpToLocation(filename, line, col)
   
-def gotoDefinition():
+def gotoDefDecl(type):
   line, col = vim.current.window.cursor
-  idx = getItem(line, col)
+  idx = utils_cn.getItem(line, col)
   if idx is None:
   	return
-  filename, line, col = getPosition(idx, 2)
+  filename, line, col = utils_cn.getPosition(idx, type)
   if filename is None:
   	return
   jumpToLocation(filename, line, col)
   
   
-def dbRebuild():
-	return
+def dbRebuild(script):
+  filename = vim.current.buffer.name
+  utils_cn.buildDB(script + ' ' + filename)
+  return
