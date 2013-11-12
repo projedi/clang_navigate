@@ -38,17 +38,17 @@ def goto(view, pos):
 
 class GotoPosCommand(sublime_plugin.TextCommand):
     def run(self, edit, filename, row_b, col_b, row_e, col_e):
-        self.view.window().open_file(filename);
+        view = self.view.window().open_file(filename);
 
-        pt_b = self.view.text_point(row_b - 1, col_b)
-        pt_e = self.view.text_point(row_e - 1, col_e)
+        pt_b = view.text_point(row_b - 1, col_b)
+        pt_e = view.text_point(row_e - 1, col_e)
 
         r = sublime.Region(pt_b, pt_e)
 
-        self.view.sel().clear()
-        self.view.sel().add(r)
+        view.sel().clear()
+        view.sel().add(r)
 
-        self.view.show(r)
+        view.show(r)
 
 class VimideDefinitionCommand(sublime_plugin.TextCommand):
     def run(self, edit):
