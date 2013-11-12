@@ -1,0 +1,40 @@
+-- -- Cursor -> wtf we have here
+-- create table items (
+--     id INT NOT NULL,
+--     file VARCHAR(255) NOT NULL,
+--     row_begin INT NOT NULL, col_begin INT NOT NULL,
+--     row_end INT NOT NULL, col_end INT NOT NULL,
+--     PRIMARY KEY (id), INDEX(file, row_begin, col_begin) );
+
+create table items (
+    id INT NOT NULL,
+    file VARCHAR(255) NOT NULL,
+    row_b INT NOT NULL, col_b INT NOT NULL,
+    row_e INT NOT NULL, col_e INT NOT NULL,
+    type INT NOT NULL,
+    data TEXT NOT NULL );
+CREATE INDEX items_id_idx ON items (id);
+CREATE INDEX items_pos_idx ON items (file, row_b, col_b);
+
+-- create table declarations (
+--     id INT NOT NULL,
+--     file VARCHAR(255) NOT NULL,
+--     row_begin INT NOT NULL, col_begin INT NOT NULL,
+--     row_end INT NOT NULL, col_end INT NOT NULL,
+--     data TEXT NOT NULL # type, etc ???
+--     PRIMARY KEY (id) );
+
+-- create table usages (
+--     id INT NOT NULL,
+--     file VARCHAR(255) NOT NULL,
+--     row_begin INT NOT NULL, col_begin INT NOT NULL,
+--     row_end INT NOT NULL, col_end INT NOT NULL,
+--     data TEXT NOT NULL # type, etc ???
+--     PRIMARY KEY (id) );
+
+-- visit node:
+--   < get file range
+--   < get declaration file range
+--   < find declaration with this range
+--     < add declaration if not found
+--   < add definition/usage
