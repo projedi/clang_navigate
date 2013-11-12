@@ -13,7 +13,7 @@ void insertRow(sqlite3 * db, SourceRange range, int id, std::string data, int ty
        << "'" << range.filename << "' ,"
        << range.row_b << "," << range.col_b << ","
        << range.row_e << "," << range.col_e << ","
-       << DEFINITION_TYPE << ","
+       << type << ","
        << "'" << data << "' )";
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
