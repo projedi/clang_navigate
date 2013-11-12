@@ -232,6 +232,9 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
    bool VisitTypedefNameDecl(clang::TypedefNameDecl* decl) {
       llerr << "TypedefName: " << *decl << "\n";
+      addDefinition(
+            decl->getSourceRange(),
+            "Typedef " + decl->getNameAsString() );
       return true;
    }
 
@@ -282,16 +285,16 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
    bool VisitFieldDecl(clang::FieldDecl* decl) {
       llerr << "Field: " << *decl << "\n";
       addDefinition(
-            decl->getSourceRange(),
-            "Field " + decl->getNameAsString() );
+         decl->getSourceRange(),
+         "Field " + decl->getNameAsString() );
       return true;
    }
 
    bool VisitFunctionDecl(clang::FunctionDecl* decl) {
       llerr << "Function: " << *decl << "\n";
       addDefinition(
-            decl->getSourceRange(),
-            "Function " + decl->getNameAsString() );
+         decl->getSourceRange(),
+         "Function " + decl->getNameAsString() );
       return true;
    }
 
@@ -314,12 +317,24 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
    bool VisitMemberExpr(clang::MemberExpr* expr) {
       llerr << "Member: " << *expr << "\n";
-      if(clang::FieldDecl const* decl = dynamic_cast<clang::FieldDecl const*>(expr->getMemberDecl())) {
-         addDeclaration(
+      if(clang::VarDecl const* decl = dynamic_cast<clang::VarDecl const*>(expr->getMemberDecl())) {
+         addUsage(
+            expr->getSourceRange(),
+            "Var " + expr->getMemberNameInfo().getAsString(),
+            decl->getSourceRange(),
+            "Var " + decl->getNameAsString());
+      } else if(clang::FieldDecl const* decl = dynamic_cast<clang::FieldDecl const*>(expr->getMemberDecl())) {
+         addUsage(
             expr->getSourceRange(),
             "Field " + expr->getMemberNameInfo().getAsString(),
             decl->getSourceRange(),
             "Field " + decl->getNameAsString());
+      } else if(clang::FunctionDecl const* decl = dynamic_cast<clang::FunctionDecl const*>(expr->getMemberDecl())) {
+         addUsage(
+            expr->getSourceRange(),
+            "Fun " + expr->getMemberNameInfo().getAsString(),
+            decl->getSourceRange(),
+            "Fun " + decl->getNameAsString());
       }
       return true;
    }
@@ -327,11 +342,23 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
    bool VisitDeclRefExpr(clang::DeclRefExpr* expr) {
       llerr << "DeclRef: " << *expr << "\n";
       if(clang::VarDecl const* decl = dynamic_cast<clang::VarDecl const*>(expr->getDecl())) {
-         addDeclaration(
+         addUsage(
             expr->getSourceRange(),
             "Var " + expr->getNameInfo().getAsString(),
             decl->getSourceRange(),
             "Var " + decl->getNameAsString());
+      } else if(clang::FieldDecl const* decl = dynamic_cast<clang::FieldDecl const*>(expr->getDecl())) {
+         addUsage(
+            expr->getSourceRange(),
+            "Field " + expr->getNameInfo().getAsString(),
+            decl->getSourceRange(),
+            "Field " + decl->getNameAsString());
+      } else if(clang::FunctionDecl const* decl = dynamic_cast<clang::FunctionDecl const*>(expr->getDecl())) {
+         addUsage(
+            expr->getSourceRange(),
+            "Fun " + expr->getNameInfo().getAsString(),
+            decl->getSourceRange(),
+            "Fun " + decl->getNameAsString());
       }
       return true;
    }
