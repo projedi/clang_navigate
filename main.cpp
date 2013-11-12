@@ -1,6 +1,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <sstream>
 
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/ASTContext.h>
@@ -12,6 +14,11 @@
 #include <clang/Parse/ParseAST.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/raw_os_ostream.h>
+
+#include <sqlite3.h>
+const int DEFINITION_TYPE = 0;
+const int DECLARATION_TYPE = 1;
+const int USAGE_TYPE = 2;
 
 struct my_raw_ostream : llvm::raw_os_ostream {
    my_raw_ostream(std::ostream& ost, clang::SourceManager const& sm): llvm::raw_os_ostream(ost), _sm(sm) { }
@@ -213,8 +220,8 @@ private:
 
 // TODO: what about overriden operators?
 struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
-   MyASTVisitor(clang::SourceManager const& sm) : clang::RecursiveASTVisitor<MyASTVisitor>(), llerr(std::cout, sm) { }
-   
+   MyASTVisitor(clang::SourceManager const& sm, sqlite3 * db) : clang::RecursiveASTVisitor<MyASTVisitor>(), llerr(std::cout, sm), _sm(sm), _db(db) { }
+
    bool VisitNamespaceAliasDecl(clang::NamespaceAliasDecl* decl) {
       llerr << "NamespaceAlias: " << *decl << "\n";
       return true;
@@ -282,13 +289,207 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
 private:
    my_raw_ostream llerr;
+   clang::SourceManager const& _sm;
+   sqlite3 * _db;
+
+   void getLocation(clang::SourceRange const & range, clang::StringRef & filename,
+      unsigned & row_b, unsigned & col_b,
+      unsigned & row_e, unsigned & col_e)
+   {
+      clang::SourceLocation sl_begin = range.getBegin();
+      clang::SourceLocation sl_end = range.getEnd();
+      unsigned begin = _sm.getFileOffset(sl_begin);
+      unsigned end = _sm.getFileOffset(sl_end);
+      clang::FileID file = _sm.getFileID(sl_begin);
+
+      filename = _sm.getFilename(sl_begin);
+      row_b = _sm.getLineNumber(file, begin);
+      col_b = _sm.getColumnNumber(file, begin);
+      row_e = _sm.getLineNumber(file, end);
+      col_e = _sm.getColumnNumber(file, end);
+   }
+
+   void insertRow(clang::SourceRange range, int id, std::string data, int type) {
+      std::ostringstream query;
+      sqlite3_stmt * stmt;
+      int rc;
+
+      clang::StringRef filename;
+      unsigned row_b, col_b;
+      unsigned row_e, col_e;
+
+      getLocation(range, filename, row_b, col_b, row_e, col_e);
+
+      query << "INSERT INTO items (id, file, row_b, col_b, row_e, col_e, type, data) VALUES " <<
+      "(" << id << ","
+          << filename.str() << ","
+          << row_b << "," << col_b << ","
+          << row_e << "," << col_e << ","
+          << DEFINITION_TYPE << ","
+          << data << ")";
+
+      rc = sqlite3_prepare( _db, query.str().c_str(), -1, &stmt, NULL );
+      if (rc != SQLITE_OK) {
+         llerr << "sqlite3_prepare[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return;
+      }
+      rc = sqlite3_step( stmt );
+      if (rc != SQLITE_DONE) {
+         llerr << "sqlite3_step[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return;
+      }
+      sqlite3_finalize( stmt );
+   }
+
+   int getDefinitionID(clang::SourceRange range) {
+      std::ostringstream query;
+      sqlite3_stmt * stmt;
+      int rc;
+
+      clang::StringRef filename;
+      unsigned row_b, col_b;
+      unsigned row_e, col_e;
+
+      getLocation(range, filename, row_b, col_b, row_e, col_e);
+
+      query << "SELECT id FROM items WHERE" <<
+         " filename = " << filename.str() <<
+         " and row_b = " << row_b <<
+         " and col_b = " << col_b <<
+         " and row_e = " << row_e <<
+         " and col_e = " << col_e <<
+         " LIMIT 1";
+
+      rc = sqlite3_prepare( _db, query.str().c_str(), -1, &stmt, NULL );
+      if (rc != SQLITE_OK) {
+         llerr << "sqlite3_prepare[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return -1;
+      }
+      rc = sqlite3_step( stmt );
+      if (rc != SQLITE_ROW) {
+         llerr << "sqlite3_step[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return -1;
+      }
+      int id = sqlite3_column_int( stmt, 0 );
+      sqlite3_finalize( stmt );
+      return id;
+   }
+
+   int getNewDefinitionID() {
+      sqlite3_stmt * stmt;
+      int rc;
+
+      std::ostringstream query;
+      query << "SELECT id FROM items ORDER BY id DESC LIMIT 1";
+
+      rc = sqlite3_prepare( _db, query.str().c_str(), -1, &stmt, NULL );
+      if (rc != SQLITE_OK) {
+         llerr << "sqlite3_prepare[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return -1;
+      }
+      rc = sqlite3_step( stmt );
+      if (rc != SQLITE_ROW) {
+         llerr << "sqlite3_step[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return -1;
+      }
+      int id = sqlite3_column_int( stmt, 0 );
+      sqlite3_finalize( stmt );
+      return id + 1;
+   }
+
+   void createTableIfNotExists() {
+      sqlite3_stmt * stmt;
+      int rc;
+
+      std::ostringstream query;
+      query << "CREATE TABLE IF NOT EXISTS items (" <<
+               " id INT NOT NULL," <<
+               " file VARCHAR(255) NOT NULL," <<
+               " row_b INT NOT NULL, col_b INT NOT NULL," <<
+               " row_e INT NOT NULL, col_e INT NOT NULL," <<
+               " type INT NOT NULL," <<
+               " data TEXT NOT NULL );" <<
+               " CREATE INDEX IF NOT EXISTS items_id_idx ON items (id);" <<
+               " CREATE INDEX IF NOT EXISTS items_pos_idx ON items (file, row_b, col_b);";
+
+      rc = sqlite3_prepare( _db, query.str().c_str(), -1, &stmt, NULL );
+      if (rc != SQLITE_OK) {
+         llerr << "sqlite3_prepare[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return;
+      }
+      rc = sqlite3_step( stmt );
+      if (rc != SQLITE_DONE) {
+         llerr << "sqlite3_step[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return;
+      }
+      sqlite3_finalize( stmt );
+      return;
+   }
+
+   void dropFileIndex(std::string filename) {
+      sqlite3_stmt * stmt;
+      int rc;
+
+      std::ostringstream query;
+      query << "DELETE FROM items WHERE file = " << filename;
+
+      rc = sqlite3_prepare( _db, query.str().c_str(), -1, &stmt, NULL );
+      if (rc != SQLITE_OK) {
+         llerr << "sqlite3_prepare[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return;
+      }
+      rc = sqlite3_step( stmt );
+      if (rc != SQLITE_DONE) {
+         llerr << "sqlite3_step[" << rc << "] " << query << "\n";
+         sqlite3_finalize( stmt );
+         return;
+      }
+      sqlite3_finalize( stmt );
+      return;
+   }
+
+   void addDefitition(clang::SourceRange range, std::string data) {
+      if (getDefinitionID(range) != -1) {
+         return;
+      }
+
+      int id = getNewDefinitionID();
+      if (id == -1) return;
+
+      insertRow(range, id, data, DEFINITION_TYPE);
+   }
+
+   void addDeclaration(clang::SourceRange definition, clang::SourceRange range, std::string data) {
+      int id = getDefinitionID(definition);
+      if (id == -1) return;
+
+      insertRow(range, id, data, DECLARATION_TYPE);
+   }
+
+   void addUsage(clang::SourceRange definition, clang::SourceRange range, std::string data) {
+      int id = getDefinitionID(definition);
+      if (id == -1) return;
+
+      insertRow(range, id, data, DECLARATION_TYPE);
+   }
 };
 
 struct MyASTConsumer : clang::ASTConsumer {
-   MyASTConsumer() : clang::ASTConsumer() { }
+   sqlite3 * _db;
+
+   MyASTConsumer(sqlite3 * db) : clang::ASTConsumer(), _db(db) { }
 
    void HandleTranslationUnit(clang::ASTContext& ctx) {
-      MyASTVisitor visitor(ctx.getSourceManager());
+      MyASTVisitor visitor(ctx.getSourceManager(), _db);
       visitor.TraverseDecl(ctx.getTranslationUnitDecl());
    }
 };
@@ -301,6 +502,13 @@ void usage(char* name) {
 int main(int argc, char** argv) {
    if(argc != 2) usage(argv[0]);
    std::string filename(argv[1]);
+
+   sqlite3 *db;
+   int rc = sqlite3_open("vimide.db", &db);
+   if (rc != SQLITE_OK) {
+      std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
+      exit(1);
+   }
 
    clang::CompilerInstance ci;
    ci.createDiagnostics();
@@ -323,7 +531,7 @@ int main(int argc, char** argv) {
    hso->AddPath("/usr/include/c++/4.8.2/", clang::frontend::Angled, false, false);
 
    clang::InitializePreprocessor(ci.getPreprocessor(), ci.getPreprocessorOpts(), *hso, ci.getFrontendOpts());
-   MyASTConsumer *astConsumer = new MyASTConsumer();
+   MyASTConsumer *astConsumer = new MyASTConsumer(db);
    ci.setASTConsumer(astConsumer);
 
    ci.createASTContext();
@@ -334,5 +542,8 @@ int main(int argc, char** argv) {
          &ci.getPreprocessor());
    clang::ParseAST(ci.getPreprocessor(), astConsumer, ci.getASTContext());
    ci.getDiagnosticClient().EndSourceFile();
+
+   sqlite3_close(db);
+
    return 0;
 }
