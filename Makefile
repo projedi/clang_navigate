@@ -1,5 +1,5 @@
 CXX=clang++
-CXXFLAGS=$(shell llvm-config --cxxflags)
+CXXFLAGS=$(shell llvm-config --cxxflags) --std=c++11
 CLANGLIBS = -lclangFrontend -lclangDriver -lclangSerialization -lclangParse -lclangSema -lclangAnalysis -lclangEdit -lclangAST -lclangLex -lclangBasic
 LLVMLIBS=$(shell llvm-config --ldflags --libs cppbackend) $(shell llvm-config --libs)
 LIBS=$(CLANGLIBS) $(LLVMLIBS)
