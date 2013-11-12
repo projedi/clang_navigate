@@ -7,15 +7,28 @@ struct C {
 
 }
 
+const int defsize = 10;
+
+template<class T, int size = defsize>
+struct W { };
+
+template<>
+struct W<nmx::C, 20> { };
+
+template<class Y>
+struct W<Y, 30> { };
+
 nmx::C::C(int) { }
 
-namespace y = nmx;
+namespace nmy = nmx;
 
-struct A : y::C {
-   A() : y::C(0) { }
+struct A : nmy::C {
+   A() : nmy::C(0) { }
    int x;
    double y;
 } a;
+
+using namespace nmy;
 
 typedef struct A B;
 

@@ -8,8 +8,9 @@
 #include <clang/Basic/TargetInfo.h>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/Utils.h>
-#include "clang/Lex/HeaderSearch.h"
+#include <clang/Lex/HeaderSearch.h>
 #include <clang/Parse/ParseAST.h>
+#include <clang/Tooling/Tooling.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/raw_os_ostream.h>
 
@@ -40,16 +41,19 @@ struct my_raw_ostream : llvm::raw_os_ostream {
    }
 
    my_raw_ostream& operator <<(clang::NamespaceAliasDecl const& decl) {
+      //<< " - " << decl.getIdentifier()->getLength()
       return *this << decl.getNameAsString() << "(" << decl.getAliasLoc()
-                   << ") referencing " << *decl.getNamespace() // TODO: or getAliasedNamespace()?
+                   << ") referencing " << *decl.getNamespace()
                    << "\n   on " << decl.getTargetNameLoc();
    }
 
    my_raw_ostream& operator <<(clang::NamespaceDecl const& decl) {
+      // TODO: Location points to '^namespace nm' instead of 'namespace ^nm'
       return *this << (decl.isAnonymousNamespace() ? "<anonymous>" : decl.getNameAsString())
                    << "(" << decl.getLocStart() << ")";
    }
 
+   // TODO: Not needed - is handled
    my_raw_ostream& operator <<(clang::TemplateDecl const& decl) {
       *this << decl.getTemplatedDecl()->getNameAsString() << "(" << decl.getTemplatedDecl()->getLocStart()
             << ") with parameters:";
@@ -68,15 +72,24 @@ struct my_raw_ostream : llvm::raw_os_ostream {
    }
 
    my_raw_ostream& operator <<(clang::CXXRecordDecl const& decl) {
-      // TODO: Do I need to?(Check inheritance)
+      *this << decl.getNameAsString() << "(" << decl.getLocStart()
+            << ") referencing:";
+      for(auto* it = decl.bases_begin(); it != decl.bases_end(); ++it) {
+         *this << "\n   TODO:TYPE on " << it->getSourceRange();
+      }
       return *this;
    }
 
    my_raw_ostream& operator <<(clang::ClassTemplateSpecializationDecl const& decl) {
-      // TODO: Do I need to?(Check if params are generating)
+      *this << decl.getNameAsString() << "(" << decl.getLocStart()
+            << ") referencing:";
+      // TODO: each of argument has getAsType, getAsDecl
+      //for(unsigned i = 0; i != decl.getTemplateInstantiationArgs().size(); ++i)
+         //*this << "\n   " << decl.getTemplateInstantiationArgs()[i];
       return *this;
    }
 
+   // TODO: It is unneeded
    my_raw_ostream& operator <<(clang::ClassTemplatePartialSpecializationDecl const& decl) {
       // TODO: Do I need to?(Check if params are generating)
       return *this;
@@ -119,17 +132,7 @@ struct my_raw_ostream : llvm::raw_os_ostream {
    }
 
    my_raw_ostream& operator <<(clang::CXXConstructorDecl const& decl) {
-      // TODO: Need I?
-      return *this;
-   }
-
-   my_raw_ostream& operator <<(clang::CXXConversionDecl const& decl) {
-      // TODO: Need I?
-      return *this;
-   }
-
-   my_raw_ostream& operator <<(clang::CXXDestructorDecl const& decl) {
-      // TODO: Need I?
+      // TODO: I need initializer list
       return *this;
    }
 
@@ -140,7 +143,7 @@ struct my_raw_ostream : llvm::raw_os_ostream {
    }
 
    my_raw_ostream& operator <<(clang::VarDecl const& decl) {
-      return *this << decl.getNameAsString() << "(" << decl.getQualifierLoc().getBeginLoc() << ")"
+      return *this << decl.getNameAsString() << "(" << decl.getQualifierLoc().getLocalBeginLoc() << ")"
                    << " of type "; // TODO: Types.
    }
 
@@ -171,14 +174,11 @@ struct my_raw_ostream : llvm::raw_os_ostream {
    my_raw_ostream& operator <<(clang::DeclRefExpr const& expr) {
       if(clang::VarDecl const* decl = dynamic_cast<clang::VarDecl const*>(expr.getDecl())) {
          return *this << " referencing " << *decl;
+      } else if(clang::FunctionDecl const* decl = dynamic_cast<clang::FunctionDecl const*>(expr.getDecl())) {
+         return *this << " referencing " << *decl;
       } else {
          return *this << "ERROR: unknown DeclRefExpr at " << expr.getSourceRange();
       }
-      //if(llvm::isa<clang::VarDecl const*>(expr.getDecl())) {
-         //return *this << " referencing " << *llvm::dyn_cast<clang::VarDecl const*>(expr.getDecl());
-      //} else {
-         //return *this << "ERROR: unknown DeclRefExpr at " << expr.getSourceRange();
-      //}
    }
 
    my_raw_ostream& operator <<(clang::DesignatedInitExpr const& expr) {
@@ -196,15 +196,6 @@ struct my_raw_ostream : llvm::raw_os_ostream {
       } else {
          return *this << "ERROR: unknown MemberExpr at " << expr.getSourceRange();
       }
-      //if(llvm::isa<clang::FieldDecl const&>(expr)) {
-         //return *this << (clang::FieldDecl const&) expr;
-      //} else if(llvm::isa<clang::CXXMethodDecl const&>(expr)) {
-         //return *this << (clang::CXXMethodDecl const&) expr;
-      //} else {
-         //return *this << "ERROR: unknown MemberExpr at " << expr.getSourceRange();
-      //}
-      // TODO
-      //return *this;
    }
 
 private:
@@ -215,6 +206,13 @@ private:
 struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
    MyASTVisitor(clang::SourceManager const& sm) : clang::RecursiveASTVisitor<MyASTVisitor>(), llerr(std::cout, sm) { }
    
+   /* DECLARATIONS */
+
+   bool VisitLabelDecl(clang::LabelDecl* decl) {
+      llerr << "Label: " << *decl << "\n";
+      return true;
+   }
+
    bool VisitNamespaceAliasDecl(clang::NamespaceAliasDecl* decl) {
       llerr << "NamespaceAlias: " << *decl << "\n";
       return true;
@@ -225,8 +223,8 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
       return true;
    }
 
-   bool VisitTypedefNameDecl(clang::TypedefNameDecl* decl) {
-      llerr << "TypedefName: " << *decl << "\n";
+   bool VisitTemplateDecl(clang::TemplateDecl* decl) {
+      llerr << "Template: " << *decl << "\n";
       return true;
    }
 
@@ -240,13 +238,38 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
       return true;
    }
 
-   bool VisitEnumConstantDecl(clang::EnumConstantDecl* decl) {
-      llerr << "EnumConstant: " << *decl << "\n";
+   bool VisitCXXRecordDecl(clang::CXXRecordDecl* decl) {
+      llerr << "CXXRecord: " << *decl << "\n";
       return true;
    }
 
-   bool VisitNonTypeTemplateParmDecl(clang::NonTypeTemplateParmDecl* decl) {
-      llerr << "NonTypeTemplateParm: " << *decl << "\n";
+   bool VisitClassTemplateSpecializationDecl(clang::ClassTemplateSpecializationDecl* decl) {
+      llerr << "ClassTemplateSpecialization: " << *decl << "\n";
+      return true;
+   }
+
+   bool VisitClassTemplatePartialSpecializationDecl(clang::ClassTemplatePartialSpecializationDecl* decl) {
+      llerr << "ClassTemplatePartialSpecialization: " << *decl << "\n";
+      return true;
+   }
+
+   bool VisitTemplateTypeParmDecl(clang::TemplateTypeParmDecl* decl) {
+      llerr << "TemplateTypeParm: " << *decl << "\n";
+      return true;
+   }
+
+   bool VisitTypedefNameDecl(clang::TypedefNameDecl* decl) {
+      llerr << "TypedefName: " << *decl << "\n";
+      return true;
+   }
+
+   bool VisitUsingDecl(clang::UsingDecl* decl) {
+      llerr << "UsingDecl: " << *decl << "\n";
+      return true;
+   }
+
+   bool VisitUsingDirectiveDecl(clang::UsingDirectiveDecl* decl) {
+      llerr << "UsingDirectiveDecl: " << *decl << "\n";
       return true;
    }
 
@@ -260,15 +283,49 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
       return true;
    }
 
+   bool VisitCXXMethodDecl(clang::CXXMethodDecl* decl) {
+      llerr << "CXXMethod: " << *decl << "\n";
+      return true;
+   }
+
+   bool VisitCXXConstructorDecl(clang::CXXConstructorDecl* decl) {
+      llerr << "CXXConstructor: " << *decl << "\n";
+      return true;
+   }
+
+   bool VisitNonTypeTemplateParmDecl(clang::NonTypeTemplateParmDecl* decl) {
+      llerr << "NonTypeTemplateParm: " << *decl << "\n";
+      return true;
+   }
+
    bool VisitVarDecl(clang::VarDecl* decl) {
       llerr << "Var: " << *decl << "\n";
       return true;
    }
 
-   bool VisitMemberExpr(clang::MemberExpr* expr) {
-      llerr << "Member: " << *expr << "\n";
+   bool VisitEnumConstantDecl(clang::EnumConstantDecl* decl) {
+      llerr << "EnumConstant: " << *decl << "\n";
       return true;
    }
+
+   bool VisitIndirectFieldDecl(clang::IndirectFieldDecl* decl) {
+      llerr << "IndirectField: " << *decl << "\n";
+      return true;
+   }
+
+   /* STATEMENTS */
+
+   bool VisitGotoStmt(clang::GotoStmt* stmt) {
+      llerr << "GotoStmt: " << *stmt << "\n";
+      return true;
+   }
+
+   bool VisitIndirectGotoStmt(clang::IndirectGotoStmt* stmt) {
+      llerr << "IndirectGoto: " << *stmt << "\n";
+      return true;
+   }
+
+   /* EXPRESSIONS */
 
    bool VisitDeclRefExpr(clang::DeclRefExpr* expr) {
       llerr << "DeclRef: " << *expr << "\n";
@@ -277,6 +334,11 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
    bool VisitDesignatedInitExpr(clang::DesignatedInitExpr* expr) {
       llerr << "DesignatedInit: " << *expr << "\n";
+      return true;
+   }
+
+   bool VisitMemberExpr(clang::MemberExpr* expr) {
+      llerr << "Member: " << *expr << "\n";
       return true;
    }
 
@@ -293,6 +355,12 @@ struct MyASTConsumer : clang::ASTConsumer {
    }
 };
 
+struct MyAction : clang::ASTFrontendAction {
+   clang::ASTConsumer* CreateASTConsumer(clang::CompilerInstance& ci, clang::StringRef file) {
+      return new MyASTConsumer();
+   }
+};
+
 void usage(char* name) {
    std::cerr << "USAGE: " << name << " filename.cpp" << std::endl;
    exit(1);
@@ -302,37 +370,9 @@ int main(int argc, char** argv) {
    if(argc != 2) usage(argv[0]);
    std::string filename(argv[1]);
 
-   clang::CompilerInstance ci;
-   ci.createDiagnostics();
-   llvm::IntrusiveRefCntPtr<clang::TargetOptions> opts(new clang::TargetOptions());
-   opts->Triple = llvm::sys::getDefaultTargetTriple();
-   clang::TargetInfo* info = clang::TargetInfo::CreateTargetInfo(ci.getDiagnostics(), opts.getPtr());
-   ci.setTarget(info);
+   std::vector<std::string> sources;
+   sources.push_back(filename);
+   clang::tooling::ClangTool tool(clang::tooling::FixedCompilationDatabase(".", std::vector<std::string>()), sources);
 
-   ci.createFileManager();
-   ci.createSourceManager(ci.getFileManager());
-   ci.createPreprocessor();
-   ci.getLangOpts().CPlusPlus = 1;
-
-   //ci.getPreprocessorOpts().UsePredefines = false;
-   llvm::IntrusiveRefCntPtr<clang::HeaderSearchOptions> hso( new clang::HeaderSearchOptions());
-   clang::HeaderSearch headerSearch(hso, ci.getFileManager(), ci.getDiagnostics(), ci.getLangOpts(), info);
-
-   // TODO: Platform dependent stuff. What does clang use?
-   hso->AddPath("/usr/include", clang::frontend::Angled, false, false);
-   hso->AddPath("/usr/include/c++/4.8.2/", clang::frontend::Angled, false, false);
-
-   clang::InitializePreprocessor(ci.getPreprocessor(), ci.getPreprocessorOpts(), *hso, ci.getFrontendOpts());
-   MyASTConsumer *astConsumer = new MyASTConsumer();
-   ci.setASTConsumer(astConsumer);
-
-   ci.createASTContext();
-
-   const clang::FileEntry *pFile = ci.getFileManager().getFile(filename);
-   ci.getSourceManager().createMainFileID(pFile);
-   ci.getDiagnosticClient().BeginSourceFile(ci.getLangOpts(),
-         &ci.getPreprocessor());
-   clang::ParseAST(ci.getPreprocessor(), astConsumer, ci.getASTContext());
-   ci.getDiagnosticClient().EndSourceFile();
-   return 0;
+   return tool.run(clang::tooling::newFrontendActionFactory<MyAction>());
 }
