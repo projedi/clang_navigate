@@ -1,18 +1,26 @@
-CXX=clang++
-CXXFLAGS=$(shell llvm-config --cxxflags) --std=c++11
-CLANGLIBS = -lclangFrontend -lclangDriver -lclangSerialization -lclangParse -lclangSema -lclangAnalysis -lclangEdit -lclangAST -lclangLex -lclangBasic
-LLVMLIBS=$(shell llvm-config --ldflags --libs cppbackend) $(shell llvm-config --libs)
-SQLLIBS= -lsqlite3
-LIBS=$(CLANGLIBS) $(LLVMLIBS) $(SQLLIBS)
+CXX = clang++
+CXXFLAGS = $(shell llvm-config --cxxflags) --std=c++11 -g
+CLANGLIBS = -lclangFrontend -lclangDriver -lclangSerialization -lclangParse -lclangSema -lclangAnalysis -lclangEdit -lclangAST -lclangLex -lclangBasic -lclangTooling
+LLVMLIBS = $(shell llvm-config --ldflags --libs cppbackend) $(shell llvm-config --libs)
+SQLLIBS = -lsqlite3
+LIBS = $(CLANGLIBS) $(LLVMLIBS) $(SQLLIBS)
 
-clang_navigate: main.o sql.o
-	$(CXX) $(CXXFLAGS) main.o sql.o -o clang_navigate $(LIBS)
+sources = main.cpp myastvisitor.cpp sql.cpp 
+objects = $(sources:.cpp=.o)
+depends = $(sources:.cpp=.d)
 
-main.o: main.cpp sql.h
-	$(CXX) $(CXXFLAGS) main.cpp -c
+all: clang_navigate
 
-sql.o: sql.cpp sql.h
-	$(CXX) $(CXXFLAGS) sql.cpp -c
+include $(depends)
+
+clang_navigate: $(objects)
+	$(CXX) $^ -o $@ $(LIBS)
+
+%.o: %.cpp $(headers)
+	$(CXX) $(CXXFLAGS) $< -c
+
+%.d: %.cpp
+	$(CXX) $(CXXFLAGS) -MF"$@" -MG -MM -MP -MT"$(<:%.cpp=%.o)" "$<"
 
 clean:
-	rm -f clang_navigate *.o
+	rm -f clang_navigate $(objects) $(depends)

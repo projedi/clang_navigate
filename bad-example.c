@@ -1,7 +1,5 @@
 #include "example.h"
 
-typedef struct A B;
-
 int f(struct A a);
 
 struct A g() {
@@ -10,6 +8,7 @@ struct A g() {
 }
 
 int f(struct A a) {
+label1:
    return a.x + (int)a.y;
 }
 
@@ -19,8 +18,10 @@ label:   a.x = 3;
    B const* b;
    a.x += 8;
    struct A c = (struct A)(*b);
-   struct A d = { .x = 3, .y = b->y };
+   struct A d = { .x = 3, .y = b->y, .z = 4 };
+   dsf /= 0;
    argc += 5;
    goto label;
-   return f(a);
+   goto label1;
+   return k(a);
 }
