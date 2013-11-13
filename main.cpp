@@ -12,6 +12,7 @@
 #include <clang/Frontend/Utils.h>
 #include "clang/Lex/HeaderSearch.h"
 #include <clang/Parse/ParseAST.h>
+#include <clang/Tooling/Tooling.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/raw_os_ostream.h>
 
@@ -438,6 +439,24 @@ struct MyASTConsumer : clang::ASTConsumer {
    }
 };
 
+struct MyAction : clang::ASTFrontendAction {
+   MyAction(sqlite3* db): clang::ASTFrontendAction(), _db(db) { }
+
+   clang::ASTConsumer* CreateASTConsumer(clang::CompilerInstance&, clang::StringRef) {
+      return new MyASTConsumer(_db);
+   }
+private:
+   sqlite3* _db;
+};
+
+struct MyActionFactory : clang::tooling::FrontendActionFactory {
+   MyActionFactory(sqlite3* db): clang::tooling::FrontendActionFactory(), _db(db) { }
+
+   clang::FrontendAction* create() { return new MyAction(_db); }
+private:
+   sqlite3* _db;
+};
+
 void usage(char* name) {
    std::cerr << "USAGE: " << name << " filename.cpp" << std::endl;
    exit(1);
@@ -456,40 +475,14 @@ int main(int argc, char** argv) {
    createTableIfNotExists(db);
    dropFileIndex(db, filename);
 
-   clang::CompilerInstance ci;
-   ci.createDiagnostics();
-   llvm::IntrusiveRefCntPtr<clang::TargetOptions> opts(new clang::TargetOptions());
-   opts->Triple = llvm::sys::getDefaultTargetTriple();
-   clang::TargetInfo* info = clang::TargetInfo::CreateTargetInfo(ci.getDiagnostics(), opts.getPtr());
-   ci.setTarget(info);
+   std::vector<std::string> sources;
+   sources.push_back(filename);
+   clang::tooling::ClangTool tool(clang::tooling::FixedCompilationDatabase(".",
+            std::vector<std::string>()), sources);
 
-   ci.createFileManager();
-   ci.createSourceManager(ci.getFileManager());
-   ci.createPreprocessor();
-   ci.getLangOpts().CPlusPlus = 1;
-
-   //ci.getPreprocessorOpts().UsePredefines = false;
-   llvm::IntrusiveRefCntPtr<clang::HeaderSearchOptions> hso( new clang::HeaderSearchOptions());
-   clang::HeaderSearch headerSearch(hso, ci.getFileManager(), ci.getDiagnostics(), ci.getLangOpts(), info);
-
-   // TODO: Platform dependent stuff. What does clang use?
-   hso->AddPath("/usr/include", clang::frontend::Angled, false, false);
-   hso->AddPath("/usr/include/c++/4.8.2/", clang::frontend::Angled, false, false);
-
-   clang::InitializePreprocessor(ci.getPreprocessor(), ci.getPreprocessorOpts(), *hso, ci.getFrontendOpts());
-   MyASTConsumer *astConsumer = new MyASTConsumer(db);
-   ci.setASTConsumer(astConsumer);
-
-   ci.createASTContext();
-
-   const clang::FileEntry *pFile = ci.getFileManager().getFile(filename);
-   ci.getSourceManager().createMainFileID(pFile);
-   ci.getDiagnosticClient().BeginSourceFile(ci.getLangOpts(),
-         &ci.getPreprocessor());
-   clang::ParseAST(ci.getPreprocessor(), astConsumer, ci.getASTContext());
-   ci.getDiagnosticClient().EndSourceFile();
+   int res = tool.run(new MyActionFactory(db));
 
    sqlite3_close(db);
 
-   return 0;
+   return res;
 }
