@@ -1,3 +1,5 @@
 *.swp
 filelist
 clang_navigate
+*.db
+*.o
