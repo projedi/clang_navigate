@@ -82,6 +82,11 @@ bool MyASTVisitor::VisitDesignatedInitExpr(clang::DesignatedInitExpr* expr) {
    return true;
 }
 
+bool MyASTVisitor::VisitExplicitCastExpr(clang::ExplicitCastExpr* expr) {
+   add_type_usage(expr->getLocStart(), expr->getTypeAsWritten());
+   return true;
+}
+
 void MyASTVisitor::add_declaration(clang::SourceLocation const& loc, std::string const& name,
       bool is_definition, clang::Decl const* decl) {
    ////std::cerr << "Declaration(" << is_definition << "): " << name << std::endl;

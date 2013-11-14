@@ -57,6 +57,8 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
    bool VisitDesignatedInitExpr(clang::DesignatedInitExpr* expr);
 
+   bool VisitExplicitCastExpr(clang::ExplicitCastExpr* expr);
+
 private:
    void add_declaration(clang::SourceLocation const&, std::string const&,
          bool is_definition, clang::Decl const*);

@@ -12,7 +12,8 @@ int f(struct A a) {
 }
 
 struct A g() {
-
+   B b = { 3, 0.5 };
+   return (struct A) b;
 }
 
 int main(int argc, char **argv) {
