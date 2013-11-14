@@ -28,3 +28,5 @@ int getNewDefinitionID(sqlite3 * db);
 void createTableIfNotExists(sqlite3 * db);
 
 void dropFileIndex(sqlite3 * db, std::string filename);
+
+void dropBase(sqlite3 * db);

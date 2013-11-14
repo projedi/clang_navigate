@@ -62,7 +62,9 @@ int main(int argc, char** argv) {
    }
 
    createTableIfNotExists(db);
-   dropFileIndex(db, filename);
+   dropBase(db);
+   // TODO: There are some problems with headers
+   //dropFileIndex(db, filename);
 
    // TODO: Add multiple files
    std::vector<std::string> sources;

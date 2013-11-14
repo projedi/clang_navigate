@@ -6,6 +6,8 @@
 #include "myastvisitor.h"
 #include "sql.h"
 
+// TODO: types are not referenced sometimes
+
 bool MyASTVisitor::VisitLabelDecl(clang::LabelDecl* decl) {
    add_declaration(decl->getStmt()->getIdentLoc(), decl->getStmt()->getName(), true, decl);
    return true;

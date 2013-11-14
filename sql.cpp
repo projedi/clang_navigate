@@ -149,3 +149,27 @@ void dropFileIndex(sqlite3 * db, std::string filename) {
    sqlite3_finalize( stmt );
    return;
 }
+
+void dropBase(sqlite3 * db) {
+   sqlite3_stmt * stmt;
+   int rc;
+
+   std::ostringstream query;
+   query << "DELETE FROM items WHERE 1";
+   //std::cerr << query.str() << std::endl;
+
+   rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
+   if (rc != SQLITE_OK) {
+      std::cerr << "sqlite3_prepare[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
+      sqlite3_finalize( stmt );
+      return;
+   }
+   rc = sqlite3_step( stmt );
+   if (rc != SQLITE_DONE) {
+      std::cerr << "sqlite3_step[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
+      sqlite3_finalize( stmt );
+      return;
+   }
+   sqlite3_finalize( stmt );
+   return;
+}
