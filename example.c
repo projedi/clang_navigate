@@ -4,13 +4,13 @@ typedef struct A B;
 
 int f(struct A a);
 
-int f(struct A a) {
-   return a.x + (int)a.y;
-}
-
 struct A g() {
    B b = { 3, 0.5 };
    return (struct A) b;
+}
+
+int f(struct A a) {
+   return a.x + (int)a.y;
 }
 
 int main(int argc, char **argv) {
