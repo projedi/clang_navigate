@@ -1,8 +1,3 @@
-struct A {
-   int x;
-   double y;
-} a;
-
 typedef struct A B;
 
 int f(struct A a);
