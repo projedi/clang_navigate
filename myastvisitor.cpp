@@ -6,7 +6,7 @@
 #include "myastvisitor.h"
 #include "sql.h"
 
-// TODO: types are not referenced sometimes
+// TODO: Types are not referred in casts and in function params
 
 bool MyASTVisitor::VisitLabelDecl(clang::LabelDecl* decl) {
    add_declaration(decl->getStmt()->getIdentLoc(), decl->getStmt()->getName(), true, decl);
@@ -84,7 +84,7 @@ bool MyASTVisitor::VisitDesignatedInitExpr(clang::DesignatedInitExpr* expr) {
 
 void MyASTVisitor::add_declaration(clang::SourceLocation const& loc, std::string const& name,
       bool is_definition, clang::Decl const* decl) {
-   //std::cerr << "Declaration(" << is_definition << "): " << name << std::endl;
+   ////std::cerr << "Declaration(" << is_definition << "): " << name << std::endl;
    int type = is_definition ? DEFINITION_TYPE : DECLARATION_TYPE;
    if(_decl_map.find(decl) != _decl_map.end()) {
       //std::cerr << "Found previous declaration" << std::endl;
@@ -116,9 +116,9 @@ void MyASTVisitor::add_usage(clang::SourceLocation const& loc, std::string const
 
 void MyASTVisitor::add_type_usage(clang::SourceLocation const& loc,
       clang::QualType const& type) {
-   //std::cerr << "Type Usage" << std::endl;
    std::string name;
    clang::Decl const* decl = get_typedecl(type.getTypePtr(), name);
+   //std::cerr << "Type Usage with name " << name << std::endl;
    if(!decl) return;
    add_usage(loc, name, decl);
 }
@@ -175,12 +175,26 @@ SourceRange MyASTVisitor::find_range(clang::SourceLocation const& loc,
 }
 
 clang::Decl const* MyASTVisitor::get_typedecl(clang::Type const* type, std::string& name) {
+   //static const char* names[] = {
+//#define TYPE(Class, Base) #Class,
+//#define ABSTRACT_TYPE(Class, Base)
+//#include "clang/AST/TypeNodes.def"
+   //};
    if(!type) return nullptr;
-   if(clang::ArrayType::classof(type)) {
+   //std::cerr << names[type->getTypeClass()] << std::endl;
+   if(clang::ElaboratedType::classof(type)) {
+      auto type_ = static_cast<clang::ElaboratedType const*>(type);
+      return get_typedecl(type_->desugar().getTypePtr(), name);
+   } else if(clang::ArrayType::classof(type)) {
       auto type_ = static_cast<clang::ArrayType const*>(type);
       return get_typedecl(type_->getElementType().getTypePtr(), name);
    }  else if(clang::TagType::classof(type)) {
       auto type_ = static_cast<clang::TagType const*>(type);
+      if(!type_->getDecl()) return nullptr;
+      name = type_->getDecl()->getNameAsString();
+      return type_->getDecl();
+   }  else if(clang::RecordType::classof(type)) {
+      auto type_ = static_cast<clang::RecordType const*>(type);
       if(!type_->getDecl()) return nullptr;
       name = type_->getDecl()->getNameAsString();
       return type_->getDecl();

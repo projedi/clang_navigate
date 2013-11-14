@@ -11,6 +11,10 @@ int f(struct A a) {
    return a.x + (int)a.y;
 }
 
+struct A g() {
+
+}
+
 int main(int argc, char **argv) {
    a.x = 3;
    a.y = 2.2;
@@ -18,5 +22,6 @@ int main(int argc, char **argv) {
    a.x += 8;
    struct A c = (struct A)(*b);
    struct A d = { .x = 3, .y = b->y };
+   argc += 5;
    return f(a);
 }
