@@ -1,3 +1,5 @@
+#include "example.h"
+
 typedef struct A B;
 
 int f(struct A a);
