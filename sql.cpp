@@ -16,7 +16,7 @@ void insertRow(sqlite3 * db, SourceRange range, int id, std::string data, int ty
        << type << ","
        << "'" << data << "' )";
 
-   std::cerr << query.str() << std::endl;
+   //std::cerr << query.str() << std::endl;
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
       std::cerr << "sqlite3_prepare[" << rc << "] " << sqlite3_errmsg(db) << " " << sqlite3_errcode(db) << std::endl << query.str() << std::endl;
@@ -44,7 +44,7 @@ int getDefinitionID(sqlite3 * db, SourceRange range) {
       " and row_e = " << range.row_e <<
       " and col_e = " << range.col_e <<
       " LIMIT 1";
-   std::cerr << query.str() << std::endl;
+   //std::cerr << query.str() << std::endl;
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
@@ -72,7 +72,7 @@ int getNewDefinitionID(sqlite3 * db) {
 
    std::ostringstream query;
    query << "SELECT id FROM items ORDER BY id DESC LIMIT 1";
-   std::cerr << query.str() << std::endl;
+   //std::cerr << query.str() << std::endl;
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
@@ -108,7 +108,7 @@ void createTableIfNotExists(sqlite3 * db) {
             " data TEXT NOT NULL );" <<
             " CREATE INDEX IF NOT EXISTS items_id_idx ON items (id);" <<
             " CREATE INDEX IF NOT EXISTS items_pos_idx ON items (file, row_b, col_b);";
-   std::cerr << query.str() << std::endl;
+   //std::cerr << query.str() << std::endl;
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {
@@ -132,7 +132,7 @@ void dropFileIndex(sqlite3 * db, std::string filename) {
 
    std::ostringstream query;
    query << "DELETE FROM items WHERE file = '" << filename << "'";
-   std::cerr << query.str() << std::endl;
+   //std::cerr << query.str() << std::endl;
 
    rc = sqlite3_prepare( db, query.str().c_str(), -1, &stmt, NULL );
    if (rc != SQLITE_OK) {

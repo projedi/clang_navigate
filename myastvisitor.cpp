@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 
 #include <clang/AST/Decl.h>
@@ -86,11 +87,13 @@ void MyASTVisitor::add_declaration(clang::SourceLocation const& loc, std::string
       // TODO: Copy-paste
       add_usage(loc, name, decl);
       SourceRange usage_range = find_range(loc, name);
+      if(usage_range.filename.empty()) return;
       SourceRange decl_range = _decl_map[decl];
       int id = getDefinitionID(_db, decl_range);
       insertRow(_db, usage_range, id, name, type);
    } else {
       SourceRange range = find_range(loc, name);
+      if(range.filename.empty()) return;
       int id = getNewDefinitionID(_db);
       _decl_map[decl] = range;
       insertRow(_db, range, id, name, type);
@@ -101,6 +104,7 @@ void MyASTVisitor::add_usage(clang::SourceLocation const& loc, std::string const
       clang::Decl const* decl) {
    //std::cerr << "Usage: " << name << std::endl;;
    SourceRange usage_range = find_range(loc, name);
+   if(usage_range.filename.empty()) return;
    SourceRange decl_range = _decl_map[decl];
    int id = getDefinitionID(_db, decl_range);
    insertRow(_db, usage_range, id, name, USAGE_TYPE);
@@ -135,7 +139,31 @@ SourceRange MyASTVisitor::sql_range(clang::SourceRange const & in) {
 
 SourceRange MyASTVisitor::find_range(clang::SourceLocation const& loc,
       std::string const& name) {
-   // TODO: implement
+   SourceRange out;
+   clang::FileID file = _sm.getFileID(loc);
+   out.filename = _sm.getFilename(loc).str();
+   unsigned begin = _sm.getFileOffset(loc);
+
+   std::ifstream inp(out.filename);
+   if(out.filename.empty()) return out;
+   inp.seekg(begin);
+   int64_t i;
+   //std::cerr << "Looking for range of " << name << " in " << out.filename << ":" << begin << std::endl;
+   for(i = 0; i != name.size();) {
+      if(inp.get() == name[i]) ++i;
+      else {
+         inp.seekg(-i, std::ios_base::cur);
+         i = 0;
+      }
+   }
+
+   unsigned end = i;
+   begin = end - i;
+   out.row_b = _sm.getLineNumber(file, begin);
+   out.col_b = _sm.getColumnNumber(file, begin);
+   out.row_e = _sm.getLineNumber(file, end);
+   out.col_e = _sm.getColumnNumber(file, end);
+   return out;
 }
 
 clang::Decl const* MyASTVisitor::get_typedecl(clang::Type const* type, std::string& name) {
