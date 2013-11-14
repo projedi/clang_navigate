@@ -30,6 +30,7 @@ bool MyASTVisitor::VisitFieldDecl(clang::FieldDecl* decl) {
    return true;
 }
 
+// TODO: There was something about functions not iterating over defs, decls
 bool MyASTVisitor::VisitFunctionDecl(clang::FunctionDecl* decl) {
    add_declaration(decl->getLocStart(), decl->getNameAsString(),
          decl->isThisDeclarationADefinition(), decl);
@@ -84,14 +85,15 @@ void MyASTVisitor::add_declaration(clang::SourceLocation const& loc, std::string
    //std::cerr << "Declaration(" << is_definition << "): " << name << std::endl;
    int type = is_definition ? DEFINITION_TYPE : DECLARATION_TYPE;
    if(_decl_map.find(decl) != _decl_map.end()) {
+      //std::cerr << "Found previous declaration" << std::endl;
       // TODO: Copy-paste
-      add_usage(loc, name, decl);
       SourceRange usage_range = find_range(loc, name);
       if(usage_range.filename.empty()) return;
       SourceRange decl_range = _decl_map[decl];
       int id = getDefinitionID(_db, decl_range);
       insertRow(_db, usage_range, id, name, type);
    } else {
+      //std::cerr << "Haven't found previous declaration" << std::endl;
       SourceRange range = find_range(loc, name);
       if(range.filename.empty()) return;
       int id = getNewDefinitionID(_db);
@@ -157,12 +159,15 @@ SourceRange MyASTVisitor::find_range(clang::SourceLocation const& loc,
       }
    }
 
-   unsigned end = i;
+   unsigned end = begin + i;
    begin = end - i;
+   //std::cerr << "Found in between " << begin << ", " << end << std::endl;
    out.row_b = _sm.getLineNumber(file, begin);
    out.col_b = _sm.getColumnNumber(file, begin);
    out.row_e = _sm.getLineNumber(file, end);
    out.col_e = _sm.getColumnNumber(file, end);
+   //std::cerr << "That is: " << out.row_b << ":" << out.col_b << " - " << out.row_e << ":"
+             //<< out.col_e << std::endl;
    return out;
 }
 
