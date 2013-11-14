@@ -21,13 +21,13 @@ def getItem(line, col):
 		return None
 	conn = sqlite3.connect(getDBName())
 	c = conn.cursor()
-	c.execute("SELECT id, row_b, col_b FROM items WHERE (col_b <= ?) AND (col_e >= ?) AND (row_b <= ?) AND (row_e >= ?)", [col, col, line, line])
-	res = c.fetchall()
+	c.execute("SELECT id FROM items WHERE (row_b < ? OR (row_b = ? AND col_b <= ?)) AND (row_e > ? OR (row_e = ? AND col_e >= ?)) " +
+        "ORDER BY row_b DESC, col_b DESC, row_e ASC, col_e ASC LIMIT 1", [line, line, col + 1, line, line, col + 1])
+	res = c.fetchone()
 	if not res:
 		return None
-	res = sorted(res, key = lambda x: x[1], reverse = True)
-	return res[0][0]
+	return res[0]
 
 def buildDB(str):
-  os.system(str)
+  os.system("%s 2> %s > %s" % (str, "/dev/null", "/dev/null"))
   return
