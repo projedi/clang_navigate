@@ -149,17 +149,18 @@ SourceRange MyASTVisitor::find_range(clang::SourceLocation const& loc,
    std::ifstream inp(out.filename);
    if(out.filename.empty()) return out;
    inp.seekg(begin);
-   int64_t i;
+   int64_t i, j;
    //std::cerr << "Looking for range of " << name << " in " << out.filename << ":" << begin << std::endl;
-   for(i = 0; i != name.size();) {
+   for(i = 0, j = 0; i != name.size();++j) {
       if(inp.get() == name[i]) ++i;
       else {
+         j -= i;
          inp.seekg(-i, std::ios_base::cur);
          i = 0;
       }
    }
 
-   unsigned end = begin + i;
+   unsigned end = begin + j;
    begin = end - i;
    //std::cerr << "Found in between " << begin << ", " << end << std::endl;
    out.row_b = _sm.getLineNumber(file, begin);
