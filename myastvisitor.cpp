@@ -6,11 +6,6 @@
 #include "myastvisitor.h"
 #include "sql.h"
 
-bool MyASTVisitor::VisitLabelDecl(clang::LabelDecl* decl) {
-   add_declaration(decl->getStmt()->getIdentLoc(), decl->getStmt()->getName(), true, decl);
-   return true;
-}
-
 bool MyASTVisitor::VisitTagDecl(clang::TagDecl* decl) {
    add_declaration(decl->getLocStart(), decl->getNameAsString(),
          decl->isThisDeclarationADefinition(), decl);
@@ -30,7 +25,7 @@ bool MyASTVisitor::VisitFieldDecl(clang::FieldDecl* decl) {
    return true;
 }
 
-// TODO: There was something about functions not iterating over defs, decls
+// TODO: There are still some bugs in function declarations and definitions
 bool MyASTVisitor::VisitFunctionDecl(clang::FunctionDecl* decl) {
    add_declaration(decl->getLocStart(), decl->getNameAsString(),
          decl->isThisDeclarationADefinition(), decl);
@@ -53,7 +48,13 @@ bool MyASTVisitor::VisitEnumConstantDecl(clang::EnumConstantDecl* decl) {
 // TODO: What exactly is it?
 //bool MyASTVisitor::VisitIndirectFieldDecl(clang::IndirectFieldDecl* decl);
 
+bool MyASTVisitor::VisitLabelStmt(clang::LabelStmt* stmt) {
+   add_declaration(stmt->getIdentLoc(), stmt->getName(), true, stmt->getDecl());
+   return true;
+}
+
 bool MyASTVisitor::VisitGotoStmt(clang::GotoStmt* stmt) {
+   if(!stmt->getLabel()->getStmt()) return true;
    add_usage(stmt->getLabelLoc(), stmt->getLabel()->getStmt()->getName(), stmt->getLabel());
    return true;
 }
@@ -85,13 +86,13 @@ bool MyASTVisitor::VisitExplicitCastExpr(clang::ExplicitCastExpr* expr) {
    return true;
 }
 
-#define IS_FIRST_DECL(type) \
+#define REDECLARABLE_OP(type, op) \
    if(auto decl_ = dynamic_cast<clang::Redeclarable<type> const*>(decl)) \
-      return decl_->isFirstDeclaration();
+      return decl_->op();
 
-#define GET_FIRST_DECL(type) \
-   if(auto decl_ = dynamic_cast<clang::Redeclarable<type> const*>(decl)) \
-      return decl_->getFirstDeclaration();
+#define IS_FIRST_DECL(type) REDECLARABLE_OP(type, isFirstDeclaration)
+
+#define GET_FIRST_DECL(type) REDECLARABLE_OP(type, getFirstDeclaration)
 
 bool is_first_declaration(clang::Decl const* decl) {
    IS_FIRST_DECL(clang::FunctionDecl)
@@ -99,7 +100,7 @@ bool is_first_declaration(clang::Decl const* decl) {
    IS_FIRST_DECL(clang::TypedefNameDecl)
    IS_FIRST_DECL(clang::FunctionDecl)
    IS_FIRST_DECL(clang::VarDecl)
-   std::cerr << "Unknown decl in is_first_declaration" << std::endl;
+   // Otherwise we are not redeclarable
    return true;
 }
 
@@ -109,12 +110,12 @@ clang::Decl const* get_first_declaration(clang::Decl const* decl) {
    GET_FIRST_DECL(clang::TypedefNameDecl)
    GET_FIRST_DECL(clang::FunctionDecl)
    GET_FIRST_DECL(clang::VarDecl)
+   // Otherwise we are not redeclarable
    return decl;
 }
 
-void MyASTVisitor::add_declaration(clang::SourceLocation const& loc, std::string const& name,
-      bool is_definition, clang::Decl const* decl) {
-   ////std::cerr << "Declaration(" << is_definition << "): " << name << std::endl;
+void MyASTVisitor::add_declaration(clang::SourceLocation const& loc,
+      std::string const& name, bool is_definition, clang::Decl const* decl) {
    int type = is_definition ? DEFINITION_TYPE : DECLARATION_TYPE;
    if(is_first_declaration(decl)) {
       SourceRange range = find_range(loc, name);
@@ -123,7 +124,6 @@ void MyASTVisitor::add_declaration(clang::SourceLocation const& loc, std::string
       _decl_map[decl] = range;
       insertRow(_db, range, id, name, type);
    } else {
-      // TODO: Copy-paste
       SourceRange usage_range = find_range(loc, name);
       if(usage_range.filename.empty()) return;
       SourceRange decl_range = _decl_map[get_first_declaration(decl)];
@@ -139,11 +139,13 @@ void MyASTVisitor::add_declaration(clang::SourceLocation const& loc, std::string
 
 void MyASTVisitor::add_usage(clang::SourceLocation const& loc, std::string const& name,
       clang::Decl const* decl) {
+   if(!decl) return;
    //std::cerr << "Usage: " << name << std::endl;;
    SourceRange usage_range = find_range(loc, name);
    if(usage_range.filename.empty()) return;
    SourceRange decl_range = _decl_map[get_first_declaration(decl)];
    int id = getDefinitionID(_db, decl_range);
+   if(id < 0) return;
    insertRow(_db, usage_range, id, name, USAGE_TYPE);
 }
 
@@ -152,7 +154,6 @@ void MyASTVisitor::add_type_usage(clang::SourceLocation const& loc,
    std::string name;
    clang::Decl const* decl = get_typedecl(type.getTypePtr(), name);
    //std::cerr << "Type Usage with name " << name << std::endl;
-   if(!decl) return;
    add_usage(loc, name, decl);
 }
 

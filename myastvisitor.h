@@ -29,8 +29,6 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
    MyASTVisitor(clang::SourceManager const& sm, sqlite3 * db) :
       clang::RecursiveASTVisitor<MyASTVisitor>(), _sm(sm), _db(db) { }
 
-   bool VisitLabelDecl(clang::LabelDecl* decl);
-
    bool VisitTagDecl(clang::TagDecl* decl);
 
    bool VisitTypedefNameDecl(clang::TypedefNameDecl* decl);
@@ -45,6 +43,8 @@ struct MyASTVisitor : clang::RecursiveASTVisitor<MyASTVisitor> {
 
    // TODO: What exactly is it?
    //bool VisitIndirectFieldDecl(clang::IndirectFieldDecl* decl);
+
+   bool VisitLabelStmt(clang::LabelStmt* stmt);
 
    bool VisitGotoStmt(clang::GotoStmt* stmt);
 
