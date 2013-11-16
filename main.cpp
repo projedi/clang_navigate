@@ -57,8 +57,16 @@ int main(int argc, char** argv) {
    if(argc != 2) usage(argv[0]);
    std::string filename(argv[1]);
 
+   const size_t last_slash_idx = filename.find_last_of("\\/");
+   if (std::string::npos == last_slash_idx) {
+      std::cerr << "Can't get working directory" << std::endl;
+      exit(1);
+   }
+   std::stringstream ss;
+   ss << filename.substr(0, last_slash_idx) << "/vimide.db";
+
    sqlite3 *db;
-   if (sqlite3_open("vimide.db", &db) != SQLITE_OK) {
+   if (sqlite3_open(ss.str().c_str(), &db) != SQLITE_OK) {
       std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
       exit(1);
    }
