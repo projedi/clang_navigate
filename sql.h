@@ -2,12 +2,7 @@
 
 #include <string>
 
-#include <sqlite3.h>
-
-#include <clang/AST/Decl.h>
-#include <clang/Basic/TargetInfo.h>
-#include <clang/Frontend/Utils.h>
-#include <llvm/Support/raw_os_ostream.h>
+class sqlite3;
 
 const int DEFINITION_TYPE = 0;
 const int DECLARATION_TYPE = 1;

@@ -25,7 +25,6 @@ bool MyASTVisitor::VisitFieldDecl(clang::FieldDecl* decl) {
    return true;
 }
 
-// TODO: There are still some bugs in function declarations and definitions
 bool MyASTVisitor::VisitFunctionDecl(clang::FunctionDecl* decl) {
    add_declaration(decl->getLocStart(), decl->getNameAsString(),
          decl->isThisDeclarationADefinition(), decl);
@@ -130,17 +129,11 @@ void MyASTVisitor::add_declaration(clang::SourceLocation const& loc,
       int id = getDefinitionID(_db, decl_range);
       insertRow(_db, usage_range, id, name, type);
    }
-   if(_decl_map.find(decl) != _decl_map.end()) {
-      //std::cerr << "Found previous declaration" << std::endl;
-   } else {
-      //std::cerr << "Haven't found previous declaration" << std::endl;
-   }
 }
 
 void MyASTVisitor::add_usage(clang::SourceLocation const& loc, std::string const& name,
       clang::Decl const* decl) {
    if(!decl) return;
-   //std::cerr << "Usage: " << name << std::endl;;
    SourceRange usage_range = find_range(loc, name);
    if(usage_range.filename.empty()) return;
    SourceRange decl_range = _decl_map[get_first_declaration(decl)];
@@ -153,26 +146,7 @@ void MyASTVisitor::add_type_usage(clang::SourceLocation const& loc,
       clang::QualType const& type) {
    std::string name;
    clang::Decl const* decl = get_typedecl(type.getTypePtr(), name);
-   //std::cerr << "Type Usage with name " << name << std::endl;
    add_usage(loc, name, decl);
-}
-
-SourceRange MyASTVisitor::sql_range(clang::SourceRange const & in) {
-   SourceRange out;
-
-   clang::SourceLocation sl_begin = in.getBegin();
-   clang::SourceLocation sl_end = in.getEnd();
-   unsigned begin = _sm.getFileOffset(sl_begin);
-   unsigned end = _sm.getFileOffset(sl_end);
-   clang::FileID file = _sm.getFileID(sl_begin);
-
-   out.filename = _sm.getFilename(sl_begin).str();
-   out.row_b = _sm.getLineNumber(file, begin);
-   out.col_b = _sm.getColumnNumber(file, begin);
-   out.row_e = _sm.getLineNumber(file, end);
-   out.col_e = _sm.getColumnNumber(file, end);
-
-   return out;
 }
 
 SourceRange MyASTVisitor::find_range(clang::SourceLocation const& loc,
@@ -181,13 +155,12 @@ SourceRange MyASTVisitor::find_range(clang::SourceLocation const& loc,
    clang::FileID file = _sm.getFileID(loc);
    out.filename = _sm.getFilename(loc).str();
    unsigned begin = _sm.getFileOffset(loc);
-
+   // TODO: This does not seem particularly efficient
    std::ifstream inp(out.filename);
    if(out.filename.empty()) return out;
    inp.seekg(begin);
    int64_t i, j;
-   //std::cerr << "Looking for range of " << name << " in " << out.filename << ":" << begin << std::endl;
-   for(i = 0, j = 0; i != name.size();++j) {
+   for(i = 0, j = 0; i != name.size(); ++j) {
       if(inp.get() == name[i]) ++i;
       else {
          j -= i;
@@ -198,24 +171,15 @@ SourceRange MyASTVisitor::find_range(clang::SourceLocation const& loc,
 
    unsigned end = begin + j;
    begin = end - i;
-   //std::cerr << "Found in between " << begin << ", " << end << std::endl;
    out.row_b = _sm.getLineNumber(file, begin);
    out.col_b = _sm.getColumnNumber(file, begin);
    out.row_e = _sm.getLineNumber(file, end);
    out.col_e = _sm.getColumnNumber(file, end);
-   //std::cerr << "That is: " << out.row_b << ":" << out.col_b << " - " << out.row_e << ":"
-             //<< out.col_e << std::endl;
    return out;
 }
 
 clang::Decl const* MyASTVisitor::get_typedecl(clang::Type const* type, std::string& name) {
-   //static const char* names[] = {
-//#define TYPE(Class, Base) #Class,
-//#define ABSTRACT_TYPE(Class, Base)
-//#include "clang/AST/TypeNodes.def"
-   //};
    if(!type) return nullptr;
-   //std::cerr << names[type->getTypeClass()] << std::endl;
    if(clang::ElaboratedType::classof(type)) {
       auto type_ = static_cast<clang::ElaboratedType const*>(type);
       return get_typedecl(type_->desugar().getTypePtr(), name);

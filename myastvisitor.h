@@ -65,7 +65,6 @@ private:
    void add_usage(clang::SourceLocation const&, std::string const&, clang::Decl const*);
    void add_type_usage(clang::SourceLocation const&, clang::QualType const&);
    SourceRange find_range(clang::SourceLocation const&, std::string const&);
-   SourceRange sql_range(clang::SourceRange const&);
    clang::Decl const* get_typedecl(clang::Type const*, std::string&);
 private:
    clang::SourceManager const& _sm;

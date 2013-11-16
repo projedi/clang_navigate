@@ -14,6 +14,8 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/raw_os_ostream.h>
 
+#include <sqlite3.h>
+
 #include "sql.h"
 #include "myastvisitor.h"
 
@@ -62,9 +64,9 @@ int main(int argc, char** argv) {
    }
 
    createTableIfNotExists(db);
-   dropBase(db);
-   // TODO: There are some problems with headers
+   // TODO: But we also need to drop tables for all encountered headers
    //dropFileIndex(db, filename);
+   dropBase(db);
 
    // TODO: Add multiple files
    std::vector<std::string> sources;
