@@ -27,15 +27,17 @@ copy files *clang_navigate* and *clang_navigator.py*, *utils_cn.py*, *clang_navi
 
 #### plugin for Sublime-Text2:
 
-copy *vimide.py* to $HOME/.config/sublime-text-2/Packages/User
-
-* Copy vimide.py to <SublimePackages>/User/
-* Copy clang_navigate to <SublimePackages>/User/
-* Copy link your python sqlite3 library to <SublimePackages>/User/ (sqlite/ and _sqlite.so)
+* Copy vimide.py to \<SublimePackages\>/User/
+* Copy clang_navigate to \<SublimePackages\>/User/
+* Link python sqlite3 library to \<SublimePackages\>/User/ (sqlite/ and _sqlite.so)
 * Add key bindings
 
+```
   { "keys": ["*hotkey1*"], "command": "vimide_definition" },
-  { "keys": ["*hotkey2*"], "command": "vimide_declaration" },
-  { "keys": ["*hotkey3*"], "command": "vimide_usages" }
-  { "keys": ["*hotkey4*"], "command": "vimide_update" },
 
+  { "keys": ["*hotkey2*"], "command": "vimide_declaration" },
+  
+  { "keys": ["*hotkey3*"], "command": "vimide_usages" },
+  
+  { "keys": ["*hotkey4*"], "command": "vimide_update" }
+```
