@@ -5,6 +5,8 @@ Navigating C code using clang API. (AU devdays project)
 
 ## Requirements
 * clang v3.3
+* python 2.6
+* sqlite3
 
 ## Building
 * make
