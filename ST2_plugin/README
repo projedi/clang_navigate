@@ -1,6 +1,0 @@
-Instalation:
-
-- copy vimide.py to <SublimePackages>/User/
-- copy clang_navigate to <SublimePackages>/User/
-- copy python sqlite3 library to <SublimePackages>/User/
-- modify sublime-keymap with new functions
